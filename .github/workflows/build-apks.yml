@@ -1,0 +1,36 @@
+name: Build CallBridge APKs
+
+on:
+  push:
+    branches: [ callbridge-v1 ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build debug APKs
+        run: gradle :controller:assembleDebug :gateway:assembleDebug --stacktrace
+      - name: Collect APKs
+        run: |
+          mkdir -p apks
+          cp controller/build/outputs/apk/debug/controller-debug.apk apks/CallBridge-Controller.apk
+          cp gateway/build/outputs/apk/debug/gateway-debug.apk apks/CallBridge-Gateway.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CallBridge-APKs
+          path: apks/*.apk
+          retention-days: 14
