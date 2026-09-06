@@ -11,6 +11,18 @@ object GatewayClient {
     fun requestStatus(host: String, secret: String): String = request(host,"STATUS","-",secret)
     fun requestEnd(host: String, secret: String): String = request(host,"END","-",secret)
 
+    fun sendSms(host:String, secret:String, plaintext:String):String {
+        val encrypted=Crypto.encrypt(secret,plaintext)
+        return request(host,"SMS_SEND",encrypted,secret)
+    }
+
+    fun fetchSms(host:String, secret:String):String? {
+        val response=request(host,"SMS_FETCH","-",secret)
+        if(response=="SMS:NONE") return null
+        if(!response.startsWith("SMS:")) throw IllegalStateException(response)
+        return Crypto.decrypt(secret,response.removePrefix("SMS:"))
+    }
+
     private fun request(host:String, action:String, value:String, secret:String):String {
         val timestamp = System.currentTimeMillis() / 1000L
         val nonce = UUID.randomUUID().toString().replace("-", "")
