@@ -2,7 +2,7 @@ name: Build CallBridge APKs
 
 on:
   push:
-    branches: [ callbridge-v1 ]
+    branches: [ main, callbridge-v1 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
