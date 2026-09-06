@@ -24,7 +24,7 @@ class MainActivity:Activity(){
   val stop=Button(this).apply{text="STOP GATEWAY";isEnabled=false}
   val diagnostic=Button(this).apply{text="RUN STAGE 3 AUDIO TEST"}
   val status=TextView(this).apply{text="Stopped";textSize=16f}
-  val privacyInfo=TextView(this).apply{text="Private SMS mode makes CallBridge the default SMS app so incoming messages are encrypted immediately and are not shown in the normal Messages app. The gateway UI never displays message text."}
+  val privacyInfo=TextView(this).apply{text="Private SMS mode makes CallBridge the default SMS app. The gateway UI never displays message text."}
   val diagResult=TextView(this).apply{text="Audio diagnostic is optional.";setTextIsSelectable(true)}
 
   fun currentSettings()=GatewayServer.Settings(number.text.toString().trim(),secret.text.toString())
@@ -41,7 +41,7 @@ class MainActivity:Activity(){
      if(rm.isRoleHeld(RoleManager.ROLE_SMS)) status.text="Private SMS mode already enabled."
      else startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_SMS),21)
     } else status.text="SMS role is not available on this device."
-   } else status.text="Grant SMS permissions. On this Android version choose CallBridge as the default SMS app in Settings."
+   } else status.text="Choose CallBridge as the default SMS app in Settings."
   }
 
   start.setOnClickListener{
@@ -81,16 +81,5 @@ class MainActivity:Activity(){
   }
   setContentView(ScrollView(this).apply{addView(content)})
  }
-
- override fun onActivityResult(requestCode:Int,resultCode:Int,data:android.content.Intent?){
-  super.onActivityResult(requestCode,resultCode,data)
-  if(requestCode==21){
-   val rm=if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)getSystemService(RoleManager::class.java) else null
-   val held=Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q && rm?.isRoleHeld(RoleManager.ROLE_SMS)==true
-   findViewById<android.R.id.content>(android.R.id.content)
-   Toast.makeText(this,if(held)"Private SMS mode enabled" else "Private SMS mode was not enabled",Toast.LENGTH_LONG).show()
-  }
- }
-
  override fun onDestroy(){server?.stop();super.onDestroy()}
 }
