@@ -18,7 +18,7 @@ class SmsReceiver:BroadcastReceiver(){
         val sender=msgs.first().originatingAddress.orEmpty()
         if(!PhoneNumberUtils.compare(sender,allowed))return
         val body=msgs.joinToString(""){it.messageBody.orEmpty()}
-        val payload="${System.currentTimeMillis()}\n$body"
-        EncryptedSmsStore.enqueue(context,Crypto.encrypt(secret,payload))
+        if(body.isBlank())return
+        try{EncryptedSmsStore.enqueue(context,Crypto.encrypt(secret,body))}catch(_:Throwable){}
     }
 }
