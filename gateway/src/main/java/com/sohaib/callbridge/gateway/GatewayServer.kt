@@ -3,6 +3,7 @@ package com.sohaib.callbridge.gateway
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.telephony.SmsManager
 import java.net.ServerSocket
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
@@ -39,6 +40,13 @@ class GatewayServer(private val context:Context,private val settings:()->Setting
 
  fun stop(){ running=false; server?.close(); server=null; status("Stopped") }
 
+ private fun sendSms(number:String, body:String){
+  val manager=SmsManager.getDefault()
+  val parts=manager.divideMessage(body)
+  if(parts.size<=1) manager.sendTextMessage(number,null,body,null,null)
+  else manager.sendMultipartTextMessage(number,null,parts,null,null)
+ }
+
  private fun handle(line:String?):String{
   if(line.isNullOrBlank())return "DENIED:EMPTY"
   val p=line.split('|')
@@ -61,8 +69,8 @@ class GatewayServer(private val context:Context,private val settings:()->Setting
    "CALL" -> {
     if(value!=cfg.allowedNumber||value.isBlank())return "DENIED:NUMBER"
     mainHandler.post{
-     try{ CallPlacer.placeCall(context,value); status("Dial requested: $value") }
-     catch(t:Throwable){ status("Dial failed: ${t.message}") }
+     try{ CallPlacer.placeCall(context,value); status("Dial requested") }
+     catch(t:Throwable){ status("Dial failed: ${t.javaClass.simpleName}") }
     }
     "DIALING"
    }
@@ -71,6 +79,21 @@ class GatewayServer(private val context:Context,private val settings:()->Setting
     val ok=CallControl.end(context)
     status(if(ok) "Hangup requested" else "Hangup failed or permission missing")
     if(ok) "ENDED" else "END_FAILED"
+   }
+   "SMS_SEND" -> {
+    if(cfg.allowedNumber.isBlank()) return "DENIED:NUMBER"
+    try{
+     val plaintext=Crypto.decrypt(cfg.secret,value)
+     if(plaintext.isBlank()) return "DENIED:EMPTY_SMS"
+     sendSms(cfg.allowedNumber,plaintext)
+     status("Encrypted SMS command sent to SIM")
+     "SMS_SENT"
+    }catch(t:SecurityException){"SMS_PERMISSION_REQUIRED"}
+     catch(t:Throwable){"SMS_FAILED:${t.javaClass.simpleName}"}
+   }
+   "SMS_FETCH" -> {
+    val encrypted=SmsInbox.pop(context)
+    if(encrypted==null) "SMS:NONE" else "SMS:$encrypted"
    }
    else -> "DENIED:ACTION"
   }
