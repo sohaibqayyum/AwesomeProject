@@ -92,7 +92,7 @@ class GatewayServer(private val context:Context,private val settings:()->Setting
      catch(t:Throwable){"SMS_FAILED:${t.javaClass.simpleName}"}
    }
    "SMS_FETCH" -> {
-    val encrypted=SmsInbox.pop(context)
+    val encrypted=EncryptedSmsStore.poll(context)
     if(encrypted==null) "SMS:NONE" else "SMS:$encrypted"
    }
    else -> "DENIED:ACTION"
