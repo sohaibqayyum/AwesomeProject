@@ -6,20 +6,22 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.InputType
 import android.widget.*
+import kotlin.concurrent.thread
 
 class MainActivity:Activity(){
  private var server:GatewayServer?=null
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
   val prefs=getSharedPreferences("gateway",MODE_PRIVATE)
-  val title=TextView(this).apply{text="Gateway – Stage 2";textSize=22f}
+  val title=TextView(this).apply{text="Gateway – Stage 3 Diagnostic";textSize=22f}
   val ips=TextView(this).apply{text="Device IP(s): ${NetInfo.localIpv4().joinToString()}\nPort: ${GatewayServer.PORT}"}
   val number=EditText(this).apply{hint="Only number this phone may dial";inputType=InputType.TYPE_CLASS_PHONE;setText(prefs.getString("number",""))}
   val secret=EditText(this).apply{hint="Shared secret";inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD;setText(prefs.getString("secret","change-this-secret"))}
   val start=Button(this).apply{text="Start Gateway"}
   val stop=Button(this).apply{text="Stop Gateway";isEnabled=false}
+  val diagnostic=Button(this).apply{text="Run Stage 3 Audio Test"}
   val status=TextView(this).apply{text="Stopped"}
-  val rootInfo=TextView(this).apply{text="Audio bridge: not configured. Pixel 6 Pro root/system access is required for cellular audio capture/injection."}
+  val diagResult=TextView(this).apply{text="Audio diagnostic not run yet. For the best test, start a SIM call and wait until it is ACTIVE, then press the audio-test button.";setTextIsSelectable(true)}
 
   fun currentSettings()=GatewayServer.Settings(number.text.toString().trim(),secret.text.toString())
 
@@ -37,14 +39,33 @@ class MainActivity:Activity(){
    server=GatewayServer(this,::currentSettings){status.text=it}.also{it.start()}
    start.isEnabled=false;stop.isEnabled=true
   }
+
   stop.setOnClickListener{server?.stop();server=null;start.isEnabled=true;stop.isEnabled=false}
-  val layout=LinearLayout(this).apply{
+
+  diagnostic.setOnClickListener{
+   if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),8)
+    diagResult.text="Grant Microphone permission, keep/establish an ACTIVE SIM call, then press Run Stage 3 Audio Test again."
+    return@setOnClickListener
+   }
+   diagnostic.isEnabled=false
+   diagResult.text="Running audio probes… keep the SIM call ACTIVE and have the other person speak during the test."
+   thread(name="audio-diagnostic"){
+    val report=try{AudioDiagnostics.run(this)}catch(t:Throwable){"Diagnostic failed: ${t.javaClass.simpleName}: ${t.message}"}
+    runOnUiThread{diagResult.text=report;diagnostic.isEnabled=true}
+   }
+  }
+
+  val content=LinearLayout(this).apply{
    orientation=LinearLayout.VERTICAL;setPadding(32,48,32,32)
    addView(title)
-   addView(TextView(context).apply{text="Keep this app open during Stage 2 testing."})
-   addView(ips);addView(number);addView(secret);addView(start);addView(stop);addView(status);addView(rootInfo)
+   addView(TextView(context).apply{text="Stage 2 call control remains enabled. Stage 3 tests what audio access this Vivo actually exposes; it does not root or modify the phone."})
+   addView(ips);addView(number);addView(secret);addView(start);addView(stop);addView(status)
+   addView(diagnostic)
+   addView(diagResult)
   }
-  setContentView(layout)
+  val scroll=ScrollView(this).apply{addView(content)}
+  setContentView(scroll)
  }
  override fun onDestroy(){server?.stop();super.onDestroy()}
 }
